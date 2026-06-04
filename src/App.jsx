@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-
+import { useMemo, useState, useEffect } from "react";
+import logo from "./Assets/vieward.png";
 const USERS_KEY = "flowguard_react_users_v1";
 const SESSION_KEY = "flowguard_react_session_v1";
 const BEDS_KEY = "flowguard_react_beds_v1";
@@ -8,25 +8,26 @@ const defaultUsers = [
   { name: "Administrator", username: "admin", password: "flowguard2026", role: "Admin" },
   { name: "Nurse Demo", username: "nurse", password: "ward4b", role: "Nurse" }
 ];
+const defaultBeds = Array.from(
+  { length: 16 },
+  (_, i) =>
+    bed(
+      i + 1,   // Bed Number
+      "",      // Patient Name
+      "",      // Age / Sex
+      "",      // Blood Group
+      "",      // Diagnosis
+      "",      // Drug
+      0,       // Flow Rate
+      0,       // Prescribed Rate
+      0,       // Remaining Volume
+      "off",   // Status
+      "",      // Nurse
+      ""       // Doctor
+    )
+);
 
-const defaultBeds = [
-  bed(1, "Rahul Mehta", "M/54", "B+", "Sepsis observation", "0.9% NaCl", 80, 80, 190, "ok", "Staff Riya", "Dr. Sen"),
-  bed(2, "Anita Rao", "F/67", "O+", "DVT prophylaxis", "Heparin 25kU", 12, 15, 28, "warn", "Staff Riya", "Dr. Nair"),
-  bed(3, "Imran Khan", "M/72", "A+", "Hypotension", "Dopamine", 0, 10, 0, "crit", "Staff Iqbal", "Dr. Bose"),
-  bed(4, "Meera Das", "F/45", "AB+", "Electrolyte correction", "NS + KCl", 100, 100, 160, "ok", "Staff Mira", "Dr. Sen"),
-  bed(5, "Vikram Shah", "M/33", "O-", "Post-op antibiotics", "Metronidazole", 50, 50, 14, "warn", "Staff Riya", "Dr. Nair"),
-  bed(6, "Lata Menon", "F/58", "A-", "Fluid resuscitation", "RL Bolus", 200, 200, 38, "warn", "Staff Iqbal", "Dr. Bose"),
-  bed(7, "Arun Patil", "M/61", "B-", "Hyperglycemia", "Insulin Actrapid", 6, 6, 17, "ok", "Staff Mira", "Dr. Sen"),
-  bed(8, "Sara Ali", "F/29", "O+", "Pneumonia", "Ceftriaxone 1g", 0, 30, 0, "crit", "Staff Riya", "Dr. Nair"),
-  bed(9, "Kiran Joshi", "M/48", "AB-", "Maintenance fluids", "D5W", 60, 60, 210, "ok", "Staff Iqbal", "Dr. Bose"),
-  bed(10, "Vacant", "-", "-", "Vacant", "", 0, 0, 0, "off", "-", "-"),
-  bed(11, "Pooja Iyer", "F/53", "B+", "Broad-spectrum antibiotics", "Piperacillin", 50, 50, 55, "ok", "Staff Mira", "Dr. Sen"),
-  bed(12, "Joseph Mathew", "M/80", "A+", "COPD exacerbation", "Hydrocortisone", 42, 50, 31, "warn", "Staff Riya", "Dr. Nair"),
-  bed(13, "Vacant", "-", "-", "Vacant", "", 0, 0, 0, "off", "-", "-"),
-  bed(14, "Nandini Pillai", "F/69", "O+", "Vasopressor support", "Noradrenaline", 8, 8, 12, "ok", "Staff Iqbal", "Dr. Bose"),
-  bed(15, "Suresh Kumar", "M/55", "B+", "GI bleed prophylaxis", "Pantoprazole", 0, 20, 0, "crit", "Staff Mira", "Dr. Sen"),
-  bed(16, "Asha Verma", "F/38", "A+", "DKA protocol", "D5W + insulin", 40, 40, 180, "ok", "Staff Riya", "Dr. Nair")
-];
+
 
 function bed(id, name, code, blood, diagnosis, drug, rate, prescribed, remaining, status, nurse, doctor) {
   return {
@@ -34,6 +35,13 @@ function bed(id, name, code, blood, diagnosis, drug, rate, prescribed, remaining
     name,
     code,
     blood,
+    complaint: "",
+    hr: "",
+    spo2: "",
+    rr: "",
+    bp: "",
+    temp: "",
+    dose: "",
     diagnosis,
     drug,
     rate,
@@ -81,10 +89,13 @@ function statusFor(item) {
 function App() {
   const [users, setUsers] = useState(() => load(USERS_KEY, defaultUsers));
   const [session, setSession] = useState(() => load(SESSION_KEY, null));
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [beds, setBeds] = useState(() => load(BEDS_KEY, defaultBeds));
   const [authMode, setAuthMode] = useState("login");
   const [selectedId, setSelectedId] = useState(1);
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [toast, setToast] = useState("");
   const [silenced, setSilenced] = useState({});
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
@@ -95,6 +106,13 @@ function App() {
     const haystack = `${item.id} ${item.name} ${item.code} ${item.drug} ${item.nurse} ${item.doctor} ${item.diagnosis}`.toLowerCase();
     return haystack.includes(query.toLowerCase());
   });
+  useEffect(() => {
+  const timer = setInterval(() => {
+    setCurrentTime(new Date());
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, []);
 
   function updateUsers(next) {
     setUsers(next);
@@ -180,14 +198,36 @@ function App() {
 
   return (
     <main className="app">
+      {toast && (
+  <div className="toast">
+    {toast}
+  </div>
+)}
       <header className="topbar">
-        <div>
-          <strong className="brand">FlowGuard ICU</strong>
-          <span>Biomedical infusion monitoring dashboard</span>
-        </div>
+       <div className="brand-wrap">
+  <img src={logo} alt="VieWard" className="header-logo" />
+
+  <div>
+    <strong className="brand">VieWard</strong>
+    <span>Every Bed. Every Beat.</span>
+  </div>
+</div>
+<div className="live-clock">
+  <div>
+    {currentTime.toLocaleDateString("en-IN")}
+  </div>
+
+  <div>
+    {currentTime.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    })}
+  </div>
+</div>
         <div className="top-actions">
           <span>{session.name} | {session.role}</span>
-          <button onClick={() => downloadCsv("flowguard-all-patients.csv", allRows(beds))}>Download All Sheets</button>
+          <button onClick={() => downloadCsv("VieWard-all-patients.csv", allRows(beds))}>Download All Sheets</button>
           <button onClick={logout}>Logout</button>
         </div>
       </header>
@@ -206,17 +246,57 @@ function App() {
         <div>
           <div className="toolbar">
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search bed, patient, drug, doctor, nurse" />
-            <button onClick={() => simulateAlarm(beds, updateBeds)}>Simulate Alarm</button>
-          </div>
+<button
+  onClick={() => {
+    const nextId =
+      Math.max(...beds.map((b) => b.id)) + 1;
+
+    const newBed = bed(
+      nextId,
+      "",
+      "",
+      "",
+      "",
+      "",
+      0,
+      0,
+      0,
+      "off",
+      "",
+      ""
+    );
+
+    setBeds([...beds, newBed]); setToast(`BED ${nextId} added successfully`);
+
+setTimeout(() => {
+  setToast("");
+}, 5000);
+  }}
+>
+  + Add New Bed
+</button>          </div>
           <div className="bed-grid">
             {filteredBeds.map((item) => (
               <BedCard
                 key={item.id}
                 item={item}
                 selected={selectedId === item.id}
-                onSelect={() => setSelectedId(item.id)}
+                onSelect={() => setViewing(item)}
                 onEdit={() => setEditing(item)}
                 onDownload={() => downloadPatientSheet(item)}
+                onDelete={() => {
+  if (
+    window.confirm(
+      `Delete BED ${item.id}?`
+    )
+  ) {
+    setBeds(
+      beds.filter(
+        (b) => b.id !== item.id
+      )
+    );
+  }
+}}
               />
             ))}
           </div>
@@ -236,11 +316,42 @@ function App() {
             ))}
           </Panel>
 
-          <Panel title="Patient Details">
-            <PatientDetails item={selected} onEdit={() => setEditing(selected)} onDownload={() => downloadPatientSheet(selected)} />
-          </Panel>
+          
         </aside>
       </section>
+
+{viewing && (
+  <div className="modal-bg">
+    <div className="modal">
+
+      <div className="modal-head">
+        <h2>Patient Details</h2>
+
+        <button
+          type="button"
+          onClick={() => setViewing(null)}
+        >
+          Close
+        </button>
+      </div>
+
+      <PatientDetails
+        item={viewing}
+        onEdit={() => {
+          setEditing(viewing);
+          setViewing(null);
+        }}
+        onDownload={() =>
+          downloadPatientSheet(viewing)
+          
+        }
+      />
+
+    </div>
+  </div>
+)}
+
+
 
       {editing && <EditModal item={editing} onClose={() => setEditing(null)} onSave={saveBed} />}
     </main>
@@ -254,9 +365,14 @@ function AuthScreen({ mode, setMode, message, login, signup, changePassword }) {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="logo">FG</div>
-        <h1>FlowGuard ICU</h1>
-        <p>Biomedical infusion monitoring system</p>
+        <img
+  src={logo}
+  alt="VieWard"
+  className="login-logo"
+/>
+
+<h1>VieWard</h1>
+<p>Every Bed. Every Beat.</p>
 
         {mode === "login" && (
           <form onSubmit={(e) => { e.preventDefault(); login(form.username, form.password); }}>
@@ -304,60 +420,182 @@ function Metric({ label, value, danger, warn }) {
   return <article className={`metric ${danger ? "danger" : warn ? "warn" : ""}`}><span>{label}</span><strong>{value}</strong></article>;
 }
 
-function BedCard({ item, selected, onSelect, onEdit, onDownload }) {
+
+function BedCard({ item, selected, onSelect, onEdit, onDownload, onDelete }) {
   const status = statusFor(item);
-  const tte = timeToEmpty(item);
+
   return (
     <article className={`bed ${status} ${selected ? "selected" : ""}`}>
       <div className="bed-head">
         <Avatar item={item} />
+
         <div>
-          <strong>Bed {item.id}</strong>
-          <span>{item.name} | {item.code}</span>
+          <strong>BED {String(item.id).padStart(2, "0")}</strong>
+
+          <span>
+            {item.name || `Patient #${String(item.id).padStart(3, "0")}`}
+          </span>
         </div>
-        <em>{status.toUpperCase()}</em>
+
+       <em
+  style={{
+    color:
+      status === "crit"
+        ? "#ef4444"
+        : status === "warn"
+        ? "#f59e0b"
+        : status === "ok"
+        ? "#22c55e"
+        : "#60a5fa",
+    fontWeight: 700
+  }}
+>
+  {status === "off"
+    ? "VACANT"
+    : status === "ok"
+    ? "STABLE"
+    : status === "warn"
+    ? "WARNING"
+    : "CRITICAL"}
+</em>
       </div>
-      <h3>{item.drug || "No active IV"}</h3>
-      <div className="bed-values">
-        <span>Rate <b>{item.rate} mL/h</b></span>
-        <span>Order <b>{item.prescribed} mL/h</b></span>
-        <span>Bag <b>{item.remaining} mL</b></span>
-        <span>Empty <b>{tte ?? "-"} min</b></span>
-      </div>
+<div style={{ marginTop: "12px" }}>
+  <strong>
+    {item.name || "Vacant Bed"}
+  </strong>
+
+  <div style={{ marginTop: "4px" }}>
+    {item.code || "No patient assigned"}
+  </div>
+</div>
+
+      <div style={{ marginTop: "12px" }}>
+  <strong>Diagnosis</strong>
+
+  <div style={{ marginTop: "4px" }}>
+    {item.diagnosis || "Not Assigned"}
+  </div>
+</div>
+
+<div style={{ marginTop: "12px" }}>
+  <strong>Drug</strong>
+
+  <div style={{ marginTop: "4px" }}>
+    {item.drug || "No Active Infusion"}
+  </div>
+</div>
+
+<div style={{ marginTop: "12px" }}>
+  <strong>Rate</strong>
+
+  <div style={{ marginTop: "4px" }}>
+    {item.rate || 0} mL/hr
+  </div>
+</div>
+
+<div style={{ marginTop: "12px" }}>
+  <strong>Remaining</strong>
+
+  <div style={{ marginTop: "4px" }}>
+    {item.remaining || 0} mL
+  </div>
+</div>
+      
       <div className="card-actions">
-        <button onClick={onSelect}>Details</button>
-        <button onClick={onEdit}>Edit</button>
-        <button onClick={onDownload}>Sheet</button>
+        <button onClick={onSelect}>
+          Patient Details
+        </button>
+        <button
+  onClick={onDelete}
+  style={{
+    background: "#ef4444",
+    color: "white"
+  }}
+>
+  Delete
+</button>
+
+        <button onClick={onEdit}>
+          Edit
+        </button>
       </div>
     </article>
   );
 }
 
+
 function Panel({ title, children }) {
   return <section className="panel"><h2>{title}</h2>{children}</section>;
 }
-
 function PatientDetails({ item, onEdit, onDownload }) {
   return (
     <div className="details">
+
       <div className="patient-banner">
         <Avatar item={item} big />
-        <div><strong>{item.name}</strong><span>{item.code} | Blood {item.blood}</span></div>
+
+        <div>
+          <strong>{item.name}</strong>
+
+          <span>
+            Patient ID: PT-{String(item.id).padStart(3, "0")}
+          </span>
+        </div>
       </div>
-      <Row label="Diagnosis" value={item.diagnosis} />
-      <Row label="Drug/fluid" value={item.drug || "None"} />
-      <Row label="Doctor" value={item.doctor} />
-      <Row label="Nurse" value={item.nurse} />
-      <Row label="Pump" value={item.pump} />
-      <Row label="Allergies" value={item.allergies} />
-      <Row label="Notes" value={item.notes} />
+
+      <h3>Patient Information</h3>
+
+      <Row label="Patient Name" value={item.name || "-"} />
+      <Row label="Age / Sex" value={item.code || "-"} />
+      <Row label="Blood Group" value={item.blood || "-"} />
+
+      <h3>Clinical Information</h3>
+
+      <Row label="Chief Complaint" value={item.complaint || "-"} />
+      <Row label="Diagnosis" value={item.diagnosis || "-"} />
+      <Row label="Allergies" value={item.allergies || "-"} />
+
+      <h3>Vital Parameters</h3>
+
+      <Row label="Heart Rate" value={item.hr || "--"} />
+      <Row label="SpO₂" value={item.spo2 || "--"} />
+      <Row label="Respiratory Rate" value={item.rr || "--"} />
+      <Row label="Blood Pressure" value={item.bp || "--/--"} />
+      <Row label="Temperature" value={item.temp || "--"} />
+
+      <h3>Medication & Infusion</h3>
+
+      <Row label="Drug / Fluid" value={item.drug || "-"} />
+      <Row label="Dose" value={item.dose || "-"} />
+      <Row label="Flow Rate" value={`${item.rate} mL/hr`} />
+      <Row label="Prescribed Rate" value={`${item.prescribed} mL/hr`} />
+      <Row label="Remaining Volume" value={`${item.remaining} mL`} />
+      <Row label="Pump ID" value={item.pump || "-"} />
+
+      <h3>Care Team</h3>
+
+      <Row label="Doctor" value={item.doctor || "-"} />
+      <Row label="Nurse" value={item.nurse || "-"} />
+
+      <h3>Clinical Notes</h3>
+
+      <Row label="Notes" value={item.notes || "-"} />
+
       <div className="card-actions">
-        <button onClick={onEdit}>Edit Patient</button>
-        <button onClick={onDownload}>Download Sheet</button>
+        <button onClick={onEdit}>
+          Edit Patient
+        </button>
+
+        <button onClick={onDownload}>
+          Download Sheet
+        </button>
       </div>
+
     </div>
   );
 }
+
+
 
 function Avatar({ item, big }) {
   if (item.photo) {
@@ -369,42 +607,247 @@ function Avatar({ item, big }) {
 function Row({ label, value }) {
   return <div className="row"><span>{label}</span><strong>{value}</strong></div>;
 }
-
 function EditModal({ item, onClose, onSave }) {
   const [form, setForm] = useState(item);
-  const update = (field, value) => setForm({ ...form, [field]: value });
-  const number = (field, value) => update(field, Number(value) || 0);
+
+  const update = (field, value) =>
+    setForm({ ...form, [field]: value });
+
+  const number = (field, value) =>
+    update(field, Number(value) || 0);
 
   return (
     <div className="modal-bg">
-      <form className="modal" onSubmit={(e) => { e.preventDefault(); onSave(form); }}>
-        <div className="modal-head"><h2>Edit Bed {item.id}</h2><button type="button" onClick={onClose}>Close</button></div>
-        <div className="form-grid">
-          <input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Patient name" />
-          <input value={form.code} onChange={(e) => update("code", e.target.value)} placeholder="Patient code" />
-          <input value={form.blood} onChange={(e) => update("blood", e.target.value)} placeholder="Blood group" />
-          <input value={form.allergies} onChange={(e) => update("allergies", e.target.value)} placeholder="Allergies" />
-          <input value={form.doctor} onChange={(e) => update("doctor", e.target.value)} placeholder="Doctor" />
-          <input value={form.nurse} onChange={(e) => update("nurse", e.target.value)} placeholder="Nurse" />
-          <input value={form.photo} onChange={(e) => update("photo", e.target.value)} placeholder="Patient photo URL" />
-          <input value={form.diagnosis} onChange={(e) => update("diagnosis", e.target.value)} placeholder="Diagnosis" />
-          <input value={form.drug} onChange={(e) => update("drug", e.target.value)} placeholder="Drug/fluid" />
-          <input type="number" value={form.rate} onChange={(e) => number("rate", e.target.value)} placeholder="Current rate" />
-          <input type="number" value={form.prescribed} onChange={(e) => number("prescribed", e.target.value)} placeholder="Prescribed rate" />
-          <input type="number" value={form.remaining} onChange={(e) => number("remaining", e.target.value)} placeholder="Remaining mL" />
-          <select value={form.status} onChange={(e) => update("status", e.target.value)}>
-            <option value="ok">Normal</option>
-            <option value="warn">Warning</option>
-            <option value="crit">Critical</option>
-            <option value="off">Off</option>
-          </select>
-          <textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Clinical notes" />
+      <form
+        className="modal"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave(form);
+        }}
+      >
+        <div className="modal-head">
+          <h2>Patient Profile Editor</h2>
+
+          <button
+            type="button"
+            onClick={onClose}
+          >
+            Close
+          </button>
         </div>
-        <button className="primary">Save Changes</button>
+
+        <div className="form-grid">
+
+          <input
+            value={form.name}
+            onChange={(e) =>
+              update("name", e.target.value)
+            }
+            placeholder="Patient Name"
+          />
+
+          <input
+            value={form.code}
+            onChange={(e) =>
+              update("code", e.target.value)
+            }
+            placeholder="Age / Sex"
+          />
+
+          <input
+            value={form.blood}
+            onChange={(e) =>
+              update("blood", e.target.value)
+            }
+            placeholder="Blood Group"
+          />
+
+          <input
+            value={form.complaint || ""}
+            onChange={(e) =>
+              update("complaint", e.target.value)
+            }
+            placeholder="Chief Complaint"
+          />
+
+          <input
+            value={form.diagnosis}
+            onChange={(e) =>
+              update("diagnosis", e.target.value)
+            }
+            placeholder="Diagnosis"
+          />
+
+          <input
+            value={form.allergies}
+            onChange={(e) =>
+              update("allergies", e.target.value)
+            }
+            placeholder="Allergies"
+          />
+
+          <input
+            value={form.doctor}
+            onChange={(e) =>
+              update("doctor", e.target.value)
+            }
+            placeholder="Doctor"
+          />
+
+          <input
+            value={form.nurse}
+            onChange={(e) =>
+              update("nurse", e.target.value)
+            }
+            placeholder="Nurse"
+          />
+
+          <input
+            value={form.drug}
+            onChange={(e) =>
+              update("drug", e.target.value)
+            }
+            placeholder="Drug / Fluid"
+          />
+
+          <input
+            value={form.dose || ""}
+            onChange={(e) =>
+              update("dose", e.target.value)
+            }
+            placeholder="Dose"
+          />
+
+          <input
+            value={form.hr || ""}
+            onChange={(e) =>
+              update("hr", e.target.value)
+            }
+            placeholder="Heart Rate"
+          />
+
+          <input
+            value={form.spo2 || ""}
+            onChange={(e) =>
+              update("spo2", e.target.value)
+            }
+            placeholder="SpO₂"
+          />
+
+          <input
+            value={form.rr || ""}
+            onChange={(e) =>
+              update("rr", e.target.value)
+            }
+            placeholder="Respiratory Rate"
+          />
+
+          <input
+            value={form.bp || ""}
+            onChange={(e) =>
+              update("bp", e.target.value)
+            }
+            placeholder="Blood Pressure"
+          />
+
+          <input
+            value={form.temp || ""}
+            onChange={(e) =>
+              update("temp", e.target.value)
+            }
+            placeholder="Temperature"
+          />
+
+          <input
+            type="number"
+            value={form.rate}
+            onChange={(e) =>
+              number("rate", e.target.value)
+            }
+            placeholder="Flow Rate"
+          />
+
+          <input
+            type="number"
+            value={form.prescribed}
+            onChange={(e) =>
+              number("prescribed", e.target.value)
+            }
+            placeholder="Prescribed Rate"
+          />
+
+          <input
+            type="number"
+            value={form.remaining}
+            onChange={(e) =>
+              number("remaining", e.target.value)
+            }
+            placeholder="Remaining Volume"
+          />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+
+              if (!file) return;
+
+              const reader =
+                new FileReader();
+
+              reader.onload = () => {
+                update(
+                  "photo",
+                  reader.result
+                );
+              };
+
+              reader.readAsDataURL(file);
+            }}
+          />
+
+          <select
+            value={form.status}
+            onChange={(e) =>
+              update("status", e.target.value)
+            }
+          >
+            <option value="ok">
+              Stable
+            </option>
+
+            <option value="warn">
+              Warning
+            </option>
+
+            <option value="crit">
+              Critical
+            </option>
+
+            <option value="off">
+              Vacant
+            </option>
+          </select>
+
+          <textarea
+            value={form.notes}
+            onChange={(e) =>
+              update("notes", e.target.value)
+            }
+            placeholder="Clinical Notes"
+          />
+        </div>
+
+        <button className="primary">
+          Save Patient
+        </button>
       </form>
     </div>
   );
 }
+
+
 
 function makeAlarms(item) {
   if (item.status === "off") return [];
