@@ -1,0 +1,26 @@
+# VieWard Version History
+
+## v0.3 Stable (05-Jun-2026)
+
+### Added
+- Activity Logs
+- Persistent Logs (localStorage)
+- Download Logs
+- Delete Single Log
+- Clear All Logs
+- Bed Reset Feature
+- Bed Delete Feature
+- Bag Status Monitoring
+- ETA Calculation
+- Alarm Popups
+- Adult Label
+
+### Improved
+- Dark Mode
+- ICU Bed Cards
+- Alarm UI
+- Toast Notifications
+- Patient Management UI
+
+### Notes
+- Stable version before Pediatrics implementation
