@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import logo from "./Assets/vieward.png";
+const LOGS_KEY = "vieward_activity_logs";
 const USERS_KEY = "flowguard_react_users_v1";
 const SESSION_KEY = "flowguard_react_session_v1";
 const BEDS_KEY = "flowguard_react_beds_v1";
-
 const defaultUsers = [
   { name: "Administrator", username: "admin", password: "flowguard2026", role: "Admin" },
   { name: "Nurse Demo", username: "nurse", password: "ward4b", role: "Nurse" }
@@ -54,7 +54,11 @@ function bed(id, name, code, blood, diagnosis, drug, rate, prescribed, remaining
     allergies: id === 2 ? "Penicillin" : "None known",
     pump: status === "off" ? "-" : `Pump A-${String(id).padStart(2, "0")}`,
     photo: "",
-    notes: status === "crit" ? "Requires immediate clinical review." : "Monitoring active."
+    notes: status === "crit" ? "Requires immediate clinical review." : "Monitoring active." ,
+    weight: "",
+    height: "",
+    ageMonths: "",
+
   };
 }
 
@@ -87,6 +91,11 @@ function statusFor(item) {
 }
 
 function App() {
+  const [wardType, setWardType] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+const [alarmSound, setAlarmSound] = useState(true);
+const [popupDuration, setPopupDuration] = useState(5);
   const [users, setUsers] = useState(() => load(USERS_KEY, defaultUsers));
   const [session, setSession] = useState(() => load(SESSION_KEY, null));
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -95,24 +104,95 @@ function App() {
   const [selectedId, setSelectedId] = useState(1);
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
+  const [filter, setFilter] = useState("all");
   const [toast, setToast] = useState("");
   const [silenced, setSilenced] = useState({});
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
-
+const [popupAlarm, setPopupAlarm] = useState(null);
+const [activityLog, setActivityLog] = useState(() =>
+  load(LOGS_KEY, [])
+);
   const selected = beds.find((item) => item.id === selectedId) || beds[0];
   const alarms = useMemo(() => beds.flatMap(makeAlarms), [beds]);
-  const filteredBeds = beds.filter((item) => {
-    const haystack = `${item.id} ${item.name} ${item.code} ${item.drug} ${item.nurse} ${item.doctor} ${item.diagnosis}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
-  });
-  useEffect(() => {
+  
+ const filteredBeds = beds.filter((item) => {
+  const haystack =
+    `${item.id} ${item.name} ${item.code} ${item.drug} ${item.nurse} ${item.doctor} ${item.diagnosis}`.toLowerCase();
+
+  const matchesSearch =
+    haystack.includes(query.toLowerCase());
+
+  const matchesFilter =
+    filter === "all"
+      ? true
+      : statusFor(item) === filter;
+
+  return matchesSearch && matchesFilter;
+});
+
+useEffect(() => {
   const timer = setInterval(() => {
     setCurrentTime(new Date());
   }, 1000);
 
   return () => clearInterval(timer);
 }, []);
+
+useEffect(() => {
+  if (!alarms.length) return;
+
+  const latest = alarms[0];
+
+  setPopupAlarm(latest);
+  addLog(`Alarm: ${latest.title}`);
+
+  const timer = setTimeout(() => {
+    setPopupAlarm(null);
+  }, popupDuration * 1000);
+
+  return () => clearTimeout(timer);
+}, [alarms]);
+
+function updateUsers(next) {
+}
+function resetBed(item) {
+  updateBeds(
+    beds.map((b) =>
+      b.id === item.id
+        ? {
+            ...b,
+            name: "",
+            code: "",
+            blood: "",
+            complaint: "",
+            diagnosis: "",
+            drug: "",
+            dose: "",
+            hr: "",
+            spo2: "",
+            rr: "",
+            bp: "",
+            temp: "",
+            weight: "",
+height: "",
+ageMonths: "",
+            rate: 0,
+            prescribed: 0,
+            remaining: 0,
+            doctor: "",
+            nurse: "",
+            allergies: "",
+            notes: "",
+            photo: "",
+            status: "off"
+          }
+        : b
+    )
+  );
+  addLog(`BED ${item.id} reset`);
+  
+}
 
   function updateUsers(next) {
     setUsers(next);
@@ -129,6 +209,7 @@ function App() {
     if (!user) return setMessage("Invalid username or password.");
     setSession(user);
     save(SESSION_KEY, user);
+    addLog(`${user.name} logged in`);
     setMessage("");
   }
 
@@ -151,13 +232,35 @@ function App() {
 
   function logout() {
     setSession(null);
+    addLog(`${session.name} logged out`);
     localStorage.removeItem(SESSION_KEY);
   }
+function addLog(message) {
+  const now = new Date();
 
+  const time = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const next = [
+    {
+      id: Date.now(),
+      time,
+      message
+    },
+    ...activityLog
+  ];
+
+  setActivityLog(next);
+
+  save(LOGS_KEY, next);
+}
   function saveBed(nextBed) {
     updateBeds(beds.map((item) => item.id === nextBed.id ? nextBed : item));
     setEditing(null);
     setSelectedId(nextBed.id);
+    addLog(`Patient updated in BED ${nextBed.id}`);
   }
 
   function downloadPatientSheet(item) {
@@ -197,7 +300,7 @@ function App() {
   }
 
   return (
-    <main className="app">
+    <main className={`app ${darkMode ? "dark" : ""}`}>
       {toast && (
   <div className="toast">
     {toast}
@@ -206,9 +309,13 @@ function App() {
       <header className="topbar">
        <div className="brand-wrap">
   <img src={logo} alt="VieWard" className="header-logo" />
-
   <div>
-    <strong className="brand">VieWard</strong>
+   <strong className="brand">
+  VieWard
+  <span className="ward-label">
+    🧑 Adult
+  </span>
+</strong>
     <span>Every Bed. Every Beat.</span>
   </div>
 </div>
@@ -225,26 +332,79 @@ function App() {
     })}
   </div>
 </div>
+ <button
+  onClick={() => setDarkMode(!darkMode)}
+  className="theme-toggle"
+>
+  {darkMode ? "☀ Light" : "🌙 Dark"}
+</button>
+
         <div className="top-actions">
           <span>{session.name} | {session.role}</span>
           <button onClick={() => downloadCsv("VieWard-all-patients.csv", allRows(beds))}>Download All Sheets</button>
-          <button onClick={logout}>Logout</button>
+          <button
+  onClick={() => {
+    if (window.confirm("Logout from VieWard?")) {
+      logout();
+    }
+  }}
+>
+  Logout
+</button>
         </div>
       </header>
 
       <section className="metrics">
-        <Metric label="Active IV lines" value={beds.filter((b) => b.status !== "off").length} />
-        <Metric label="Critical alarms" value={alarms.filter((a) => a.level === "crit").length} danger />
-        <Metric label="Warnings" value={alarms.filter((a) => a.level === "warn").length} warn />
-        <Metric label="Bag due <20 min" value={beds.filter((b) => {
-          const tte = timeToEmpty(b);
-          return tte !== null && tte <= 20;
-        }).length} warn />
-      </section>
+  <Metric
+    label="Occupied Beds"
+    value={beds.filter((b) => b.status !== "off").length}
+  />
+
+  <Metric
+    label="Vacant Beds"
+    value={beds.filter((b) => b.status === "off").length}
+  />
+
+  <Metric
+    label="Critical Patients"
+    value={beds.filter((b) => b.status === "crit").length}
+    danger
+  />
+
+  <Metric
+    label="Low / Empty Bags"
+    value={beds.filter((b) => {
+      const tte = timeToEmpty(b);
+      return tte !== null && tte <= 20;
+    }).length}
+    warn
+  />
+</section>
 
       <section className="workspace">
         <div>
           <div className="toolbar">
+            <div className="filter-bar">
+  <button onClick={() => setFilter("all")}>
+    All
+  </button>
+
+  <button onClick={() => setFilter("off")}>
+    Vacant
+  </button>
+
+  <button onClick={() => setFilter("ok")}>
+    Stable
+  </button>
+
+  <button onClick={() => setFilter("warn")}>
+    Warning
+  </button>
+
+  <button onClick={() => setFilter("crit")}>
+    Critical
+  </button>
+</div>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search bed, patient, drug, doctor, nurse" />
 <button
   onClick={() => {
@@ -266,11 +426,14 @@ function App() {
       ""
     );
 
-    setBeds([...beds, newBed]); setToast(`BED ${nextId} added successfully`);
+    setBeds([...beds, newBed]);
 
+addLog(`BED ${nextId} added`);
+
+setToast(`BED ${nextId} added successfully`);
 setTimeout(() => {
   setToast("");
-}, 5000);
+},5000)
   }}
 >
   + Add New Bed
@@ -283,6 +446,7 @@ setTimeout(() => {
                 selected={selectedId === item.id}
                 onSelect={() => setViewing(item)}
                 onEdit={() => setEditing(item)}
+                onReset={() => resetBed(item)}
                 onDownload={() => downloadPatientSheet(item)}
                 onDelete={() => {
   if (
@@ -295,6 +459,7 @@ setTimeout(() => {
         (b) => b.id !== item.id
       )
     );
+    addLog(`BED ${item.id} deleted`);
   }
 }}
               />
@@ -304,16 +469,117 @@ setTimeout(() => {
 
         <aside className="side">
           <Panel title="Alarms">
-            {alarms.length === 0 && <p className="muted">No active alarms.</p>}
-            {alarms.map((alarm) => (
-              <div key={alarm.id} className={`alarm ${alarm.level} ${alarm.level === "crit" && !silenced[alarm.id] ? "blink" : ""}`}>
-                <strong>{alarm.title}</strong>
-                <p>{alarm.text}</p>
-                <button onClick={() => setSilenced({ ...silenced, [alarm.id]: !silenced[alarm.id] })}>
-                  {silenced[alarm.id] ? "Unsilence" : "Silence"}
-                </button>
-              </div>
-            ))}
+  {alarms.length === 0 && (
+    <p className="muted">
+      No active alarms.
+    </p>
+  )}
+
+  {alarms.map((alarm) => (
+    <div
+      key={alarm.id}
+      className={`alarm ${alarm.level} ${
+        alarm.level === "crit" &&
+        !silenced[alarm.id]
+          ? "blink"
+          : ""
+      }`}
+    >
+      <strong>{alarm.title}</strong>
+
+      <p>{alarm.text}</p>
+
+      <button
+        onClick={() =>
+          setSilenced({
+            ...silenced,
+            [alarm.id]:
+              !silenced[alarm.id]
+          })
+        }
+      >
+        {silenced[alarm.id]
+          ? "Unsilence"
+          : "Silence"}
+      </button>
+    </div>
+  ))}
+</Panel>
+                     <Panel title="Ward Activity Log">
+                      <div
+  style={{
+    display: "flex",
+    gap: "8px",
+    marginBottom: "10px"
+  }}
+>
+  <button
+    onClick={() =>
+      downloadCsv(
+        "VieWard-Activity-Log.csv",
+        [
+          ["Time", "Activity"],
+          ...activityLog.map((log) => [
+            log.time,
+            log.message
+          ])
+        ]
+      )
+    }
+  >
+    Download Logs
+  </button>
+
+  <button
+    style={{
+      background: "#ef4444",
+      color: "white"
+    }}
+    onClick={() => {
+      if (
+        window.confirm(
+          "Delete all activity logs?"
+        )
+      ) {
+        setActivityLog([]);
+        save(LOGS_KEY, []);
+      }
+    }}
+  >
+    Clear All
+  </button>
+</div>
+  {activityLog.length === 0 ? (
+    <p className="muted">
+      No activity yet.
+    </p>
+  ) : (
+   activityLog.map((log) => (
+  <div
+    key={log.id}
+    className="activity-item"
+  >
+    <strong>{log.time}</strong>
+
+    <div>{log.message}</div>
+
+    <button
+      onClick={() => {
+        const next =
+          activityLog.filter(
+            (item) =>
+              item.id !== log.id
+          );
+
+        setActivityLog(next);
+        save(LOGS_KEY, next);
+      }}
+    >
+      Delete
+    </button>
+  </div>
+))
+  )}
           </Panel>
 
           
@@ -350,7 +616,67 @@ setTimeout(() => {
     </div>
   </div>
 )}
+{showSettings && (
+  <div className="modal-bg">
+    <div className="modal">
 
+      <div className="modal-head">
+        <h2>Settings</h2>
+
+        <button
+          onClick={() =>
+            setShowSettings(false)
+          }
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="form-grid">
+
+        <div>
+          <label>Dark Mode</label>
+
+          <input
+            type="checkbox"
+            checked={darkMode}
+            onChange={() =>
+              setDarkMode(!darkMode)
+            }
+          />
+        </div>
+
+        <div>
+          <label>Alarm Sound</label>
+
+          <input
+            type="checkbox"
+            checked={alarmSound}
+            onChange={() =>
+              setAlarmSound(!alarmSound)
+            }
+          />
+        </div>
+
+        <div>
+          <label>Popup Duration (sec)</label>
+
+          <input
+            type="number"
+            value={popupDuration}
+            onChange={(e) =>
+              setPopupDuration(
+                Number(e.target.value)
+              )
+            }
+          />
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+)}
 
 
       {editing && <EditModal item={editing} onClose={() => setEditing(null)} onSave={saveBed} />}
@@ -421,7 +747,7 @@ function Metric({ label, value, danger, warn }) {
 }
 
 
-function BedCard({ item, selected, onSelect, onEdit, onDownload, onDelete }) {
+function BedCard({ item, selected, onSelect, onEdit, onDownload, onDelete, onReset }) {
   const status = statusFor(item);
 
   return (
@@ -458,46 +784,110 @@ function BedCard({ item, selected, onSelect, onEdit, onDownload, onDelete }) {
     ? "WARNING"
     : "CRITICAL"}
 </em>
-      </div>
-<div style={{ marginTop: "12px" }}>
-  <strong>
+<div
+  style={{
+    marginTop: "8px",
+    fontWeight: 700,
+    fontSize: "0.85rem"
+  }}
+>
+  {status === "off" ? (
+    "—"
+  ) : (() => {
+      const tte = timeToEmpty(item);
+
+      if (tte !== null && tte <= 10)
+        return "🔴 BAG EMPTY";
+
+      if (tte !== null && tte <= 20)
+        return "🟠 LOW BAG";
+
+      return "🟢 BAG OK";
+    })()
+  }
+</div>
+</div>
+<div
+ className="patient-summary"
+>
+  <strong
+    style={{
+      fontSize: "15px",
+      display: "block"
+    }}
+  >
     {item.name || "Vacant Bed"}
   </strong>
 
-  <div style={{ marginTop: "4px" }}>
+  <div
+    style={{
+      color: "#64748b",
+      fontSize: "12px",
+      marginTop: "2px"
+    }}
+  >
     {item.code || "No patient assigned"}
   </div>
-</div>
 
-      <div style={{ marginTop: "12px" }}>
-  <strong>Diagnosis</strong>
-
-  <div style={{ marginTop: "4px" }}>
-    {item.diagnosis || "Not Assigned"}
+  <div
+    style={{
+      marginTop: "6px",
+      fontSize: "12px"
+    }}
+  >
+    {item.diagnosis || "No Diagnosis"}
   </div>
 </div>
 
-<div style={{ marginTop: "12px" }}>
-  <strong>Drug</strong>
-
-  <div style={{ marginTop: "4px" }}>
-    {item.drug || "No Active Infusion"}
+<div
+ className="infusion-summary"
+>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      marginBottom: "8px"
+    }}
+  >
+    <span>💉 Drug</span>
+    <strong>{item.drug || "None"}</strong>
   </div>
-</div>
 
-<div style={{ marginTop: "12px" }}>
-  <strong>Rate</strong>
-
-  <div style={{ marginTop: "4px" }}>
-    {item.rate || 0} mL/hr
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      marginBottom: "8px"
+    }}
+  >
+    <span>Rate</span>
+    <strong>{item.rate || 0} mL/hr</strong>
   </div>
-</div>
 
-<div style={{ marginTop: "12px" }}>
-  <strong>Remaining</strong>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      marginBottom: "8px"
+    }}
+  >
+    <span>Volume</span>
+    <strong>{item.remaining || 0} mL</strong>
+  </div>
 
-  <div style={{ marginTop: "4px" }}>
-    {item.remaining || 0} mL
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between"
+    }}
+  >
+    <span>ETA</span>
+
+    <strong>
+      {item.rate > 0
+        ? `${Math.floor(item.remaining / item.rate)}h ${Math.round(((item.remaining / item.rate) % 1) * 60)}m`
+        : "--"}
+    </strong>
   </div>
 </div>
       
@@ -506,13 +896,30 @@ function BedCard({ item, selected, onSelect, onEdit, onDownload, onDelete }) {
           Patient Details
         </button>
         <button
-  onClick={onDelete}
+  onClick={() => {
+    if (item.status === "off") {
+      onDelete();
+    } else {
+      if (
+        window.confirm(
+          `Reset BED ${item.id} and discharge patient?`
+        )
+      ) {
+        onReset();
+      }
+    }
+  }}
   style={{
-    background: "#ef4444",
+    background:
+      item.status === "off"
+        ? "#ef4444"
+        : "#f59e0b",
     color: "white"
   }}
 >
-  Delete
+  {item.status === "off"
+    ? "Delete"
+    : "Reset Bed"}
 </button>
 
         <button onClick={onEdit}>
@@ -562,7 +969,17 @@ function PatientDetails({ item, onEdit, onDownload }) {
       <Row label="Respiratory Rate" value={item.rr || "--"} />
       <Row label="Blood Pressure" value={item.bp || "--/--"} />
       <Row label="Temperature" value={item.temp || "--"} />
+<Row 
+label="Weight" value={item.weight || "--"}/>
+<Row
+  label="Height"
+  value={item.height || "--"}
+/>
 
+<Row
+  label="Age (Months)"
+  value={item.ageMonths || "--"}
+/>
       <h3>Medication & Infusion</h3>
 
       <Row label="Drug / Fluid" value={item.drug || "-"} />
@@ -638,152 +1055,236 @@ function EditModal({ item, onClose, onSave }) {
 
         <div className="form-grid">
 
-          <input
-            value={form.name}
-            onChange={(e) =>
-              update("name", e.target.value)
-            }
-            placeholder="Patient Name"
-          />
+         <div>
+  <label>Patient Name</label>
 
-          <input
-            value={form.code}
-            onChange={(e) =>
-              update("code", e.target.value)
-            }
-            placeholder="Age / Sex"
-          />
+  <input
+    value={form.name}
+    onChange={(e) =>
+      update("name", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            value={form.blood}
-            onChange={(e) =>
-              update("blood", e.target.value)
-            }
-            placeholder="Blood Group"
-          />
+         <div>
+  <label>Age / Sex</label>
 
-          <input
-            value={form.complaint || ""}
-            onChange={(e) =>
-              update("complaint", e.target.value)
-            }
-            placeholder="Chief Complaint"
-          />
+  <input
+    value={form.code}
+    onChange={(e) =>
+      update("code", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            value={form.diagnosis}
-            onChange={(e) =>
-              update("diagnosis", e.target.value)
-            }
-            placeholder="Diagnosis"
-          />
+         <div>
+  <label>Blood Group</label>
 
-          <input
-            value={form.allergies}
-            onChange={(e) =>
-              update("allergies", e.target.value)
-            }
-            placeholder="Allergies"
-          />
+  <input
+    value={form.blood}
+    onChange={(e) =>
+      update("blood", e.target.value)
+    }
+  />
+</div>
+         <div>
+  <label>Chief Complaint</label>
 
-          <input
-            value={form.doctor}
-            onChange={(e) =>
-              update("doctor", e.target.value)
-            }
-            placeholder="Doctor"
-          />
+  <input
+    value={form.complaint || ""}
+    onChange={(e) =>
+      update("complaint", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            value={form.nurse}
-            onChange={(e) =>
-              update("nurse", e.target.value)
-            }
-            placeholder="Nurse"
-          />
+          <div>
+  <label>Diagnosis</label>
 
-          <input
-            value={form.drug}
-            onChange={(e) =>
-              update("drug", e.target.value)
-            }
-            placeholder="Drug / Fluid"
-          />
+  <input
+    value={form.diagnosis}
+    onChange={(e) =>
+      update("diagnosis", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            value={form.dose || ""}
-            onChange={(e) =>
-              update("dose", e.target.value)
-            }
-            placeholder="Dose"
-          />
+        <div>
+  <label>Allergies</label>
 
-          <input
-            value={form.hr || ""}
-            onChange={(e) =>
-              update("hr", e.target.value)
-            }
-            placeholder="Heart Rate"
-          />
+  <input
+    value={form.allergies}
+    onChange={(e) =>
+      update("allergies", e.target.value)
+    }
+  />
+</div>
+         <div>
+  <label>Doctor</label>
 
-          <input
-            value={form.spo2 || ""}
-            onChange={(e) =>
-              update("spo2", e.target.value)
-            }
-            placeholder="SpO₂"
-          />
+  <input
+    value={form.doctor}
+    onChange={(e) =>
+      update("doctor", e.target.value)
+    }
+  />
+</div>
+          <div>
+  <label>Nurse</label>
 
-          <input
-            value={form.rr || ""}
-            onChange={(e) =>
-              update("rr", e.target.value)
-            }
-            placeholder="Respiratory Rate"
-          />
+  <input
+    value={form.nurse}
+    onChange={(e) =>
+      update("nurse", e.target.value)
+    }
+  />
+</div>
+          <div>
+  <label>Drug / Fluid</label>
 
-          <input
-            value={form.bp || ""}
-            onChange={(e) =>
-              update("bp", e.target.value)
-            }
-            placeholder="Blood Pressure"
-          />
+  <input
+    value={form.drug}
+    onChange={(e) =>
+      update("drug", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            value={form.temp || ""}
-            onChange={(e) =>
-              update("temp", e.target.value)
-            }
-            placeholder="Temperature"
-          />
+         <div>
+  <label>Dose</label>
 
-          <input
-            type="number"
-            value={form.rate}
-            onChange={(e) =>
-              number("rate", e.target.value)
-            }
-            placeholder="Flow Rate"
-          />
+  <input
+    value={form.dose || ""}
+    onChange={(e) =>
+      update("dose", e.target.value)
+    }
+  />
+</div>
 
-          <input
-            type="number"
-            value={form.prescribed}
-            onChange={(e) =>
-              number("prescribed", e.target.value)
-            }
-            placeholder="Prescribed Rate"
-          />
+        <div>
+  <label>Heart Rate</label>
 
-          <input
-            type="number"
-            value={form.remaining}
-            onChange={(e) =>
-              number("remaining", e.target.value)
-            }
-            placeholder="Remaining Volume"
-          />
+  <input
+    value={form.hr || ""}
+    onChange={(e) =>
+      update("hr", e.target.value)
+    }
+  />
+</div>
+
+          <div>
+  <label>SpO₂</label>
+
+  <input
+    value={form.spo2 || ""}
+    onChange={(e) =>
+      update("spo2", e.target.value)
+    }
+  />
+</div>
+
+         <div>
+  <label>Respiratory Rate</label>
+
+  <input
+    value={form.rr || ""}
+    onChange={(e) =>
+      update("rr", e.target.value)
+    }
+  />
+</div>
+
+       <div>
+  <label>Blood Pressure</label>
+
+  <input
+    value={form.bp || ""}
+    onChange={(e) =>
+      update("bp", e.target.value)
+    }
+  />
+</div>
+
+          <div>
+  <label>Temperature</label>
+
+  <input
+    value={form.temp || ""}
+    onChange={(e) =>
+      update("temp", e.target.value)
+    }
+  />
+  <div>
+  <label>Weight (kg)</label>
+
+  <input
+    value={form.weight || ""}
+    onChange={(e) =>
+      update("weight", e.target.value)
+    }
+  />
+</div>
+
+<div>
+  <label>Height (cm)</label>
+
+  <input
+    value={form.height || ""}
+    onChange={(e) =>
+      update("height", e.target.value)
+    }
+  />
+</div>
+
+<div>
+  <label>Age (Months)</label>
+
+  <input
+    value={form.ageMonths || ""}
+    onChange={(e) =>
+      update("ageMonths", e.target.value)
+    }
+  />
+</div>
+</div>
+          <div>
+  <label>Flow Rate (mL/hr)</label>
+
+  <input
+    type="text"
+    inputMode="numeric"
+    value={form.rate}
+    onChange={(e) =>
+      number("rate", e.target.value)
+    }
+  />
+</div>
+
+  <div>
+  <label>Prescribed Rate (mL/hr)</label>
+
+  <input
+    type="text"
+    inputMode="numeric"
+    value={form.prescribed}
+    onChange={(e) =>
+      number("prescribed", e.target.value)
+    }
+  />
+</div>
+
+        <div>
+  <label>Remaining Volume (mL)</label>
+
+  <input
+    type="text"
+    inputMode="numeric"
+    value={form.remaining}
+    onChange={(e) =>
+      number("remaining", e.target.value)
+    }
+  />
+</div>
 
           <input
             type="file"
@@ -846,7 +1347,6 @@ function EditModal({ item, onClose, onSave }) {
     </div>
   );
 }
-
 
 
 function makeAlarms(item) {

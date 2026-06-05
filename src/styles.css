@@ -144,26 +144,83 @@ input:focus, select:focus, textarea:focus { border-color: #1d72b8; box-shadow: 0
 }
 .bed-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
-.bed {
-  background: #fff;
-  border: 1px solid #d4dfeb;
-  border-left: 6px solid #16827a;
-  border-radius: 9px;
-  padding: 12px;
-  box-shadow: 0 10px 26px rgba(29,43,62,.08);
+.bed{
+  background:#fff;
+
+  border:none;
+
+  border-radius:18px;
+
+  padding:16px;
+
+  box-shadow:
+    0 12px 28px rgba(15,23,42,.08);
+
+  transition:.25s;
 }
+.bed:hover{
+  transform:translateY(-3px);
+
+  box-shadow:
+    0 18px 40px rgba(15,23,42,.15);
+}
+.bed:hover{
+  transform:translateY(-2px);
+
+  box-shadow:
+    0 16px 32px rgba(0,0,0,.12);
+}
+.bed.crit{
+  box-shadow:
+    0 0 0 1px #ef4444,
+    0 0 20px rgba(239,68,68,.25);
+}
+
+.bed.warn{
+  background:#fffaf0;
+  border-top:5px solid #f59e0b;
+}
+.metric{
+  border-radius:14px;
+
+  background:#fff;
+
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.08);
+
+  padding:16px;
+}
+.alarm{
+  border-radius:12px;
+
+  transition:.2s;
+}
+
+.alarm:hover{
+  transform:translateX(4px);
+}
+
 .bed.warn { border-left-color: #b96c00; background: #fff8ee; }
-.bed.crit { border-left-color: #b4232c; background: #fff0f1; }
-.bed.off { border-left-color: #94a3b8; opacity: .72; }
+.bed.crit{
+  background:#fff5f5;
+  border-top:5px solid #ef4444;
+}
+.bed.off{
+  background:#f8fafc;
+  border-top:5px solid #94a3b8;
+}
 .bed.selected { outline: 3px solid rgba(29,114,184,.22); }
-.bed-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 9px;
-  align-items: center;
+.bed-head{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:12px;
+  align-items:center;
+
+  padding-bottom:10px;
+  border-bottom:1px solid #e2e8f0;
 }
 .avatar {
   width: 42px;
@@ -190,12 +247,26 @@ input:focus, select:focus, textarea:focus { border-color: #1d72b8; box-shadow: 0
   background: rgba(255,255,255,.7);
   border-radius: 7px;
   padding: 7px;
-  color: #64748b;
+  color: "#inherit";
   font-size: 12px;
 }
 .bed-values b { display: block; color: #172033; margin-top: 3px; }
 .card-actions { display: flex; gap: 7px; margin-top: 10px; }
-.card-actions button { flex: 1; font-size: 12px; padding: 0 8px; }
+.card-actions button{
+  flex:1;
+
+  height:36px;
+
+  border:none;
+
+  border-radius:8px;
+
+  font-size:12px;
+
+  font-weight:600;
+
+  cursor:pointer;
+}
 .side { display: grid; gap: 12px; align-content: start; }
 .panel {
   background: #fff;
@@ -249,7 +320,7 @@ input:focus, select:focus, textarea:focus { border-color: #1d72b8; box-shadow: 0
   z-index: 10;
 }
 .modal {
-  width: min(760px, 100%);
+  width:min(1000px,100%);
   max-height: calc(100vh - 36px);
   overflow: auto;
   background: #fff;
@@ -266,7 +337,7 @@ input:focus, select:focus, textarea:focus { border-color: #1d72b8; box-shadow: 0
 .modal-head h2 { margin: 0; }
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -357,4 +428,199 @@ input:focus, select:focus, textarea:focus { border-color: #1d72b8; box-shadow: 0
   font-size:1.1rem;
   font-weight:700;
   color:#1e293b;
+}
+.filter-bar{
+  display:flex;
+  gap:10px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+
+.filter-bar button{
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+.form-grid label{
+  display:block;
+  margin-bottom:4px;
+  font-size:0.85rem;
+  font-weight:600;
+  color:#334155;
+}
+.form-grid label{
+  display:block;
+  margin-bottom:4px;
+  font-size:0.85rem;
+  font-weight:600;
+  color:#334155;
+}
+.card-actions button{
+  flex:1;
+  padding:8px;
+  font-size:.85rem;
+}
+.app.dark{
+  background:#0f172a;
+  color:#e2e8f0;
+}
+
+.app.dark .panel,
+.app.dark .bed,
+.app.dark .metric,
+.app.dark .modal{
+  background:#1e293b;
+  border-color:#334155;
+  color:#e2e8f0;
+}
+
+.app.dark input,
+.app.dark textarea,
+.app.dark select{
+  background:#0f172a;
+  color:#fff;
+  border:1px solid 
+}
+
+.app.dark .topbar{
+  background:#111827;
+}
+
+.theme-toggle{
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+.app.dark .bed{
+  background:#1e293b;
+  color:#f8fafc;
+}
+
+.app.dark .panel{
+  background:#1e293b;
+  color:#f8fafc;
+}
+
+.app.dark .metric{
+  background:#1e293b;
+  color:#f8fafc;
+}
+
+.app.dark .patient-banner{
+  background:#0f172a;
+  border-color:#334155;
+}
+
+.app.dark .row{
+  border-bottom-color:#334155;
+}
+
+.app.dark .muted,
+.app.dark span,
+.app.dark label{
+  color:#cbd5e1;
+}
+
+.app.dark strong{
+  color:#f8fafc;
+}
+.app.dark .live-clock,
+.app.dark .live-clock div,
+.app.dark .topbar span,
+.app.dark .brand,
+.app.dark .bed-head span,
+.app.dark .alarm p,
+.app.dark .row span,
+.app.dark .form-grid label{
+  color:#f1f5f9 !important;
+}
+
+.app.dark .bed-head{
+  border-bottom:1px solid 475569;
+}
+
+.app.dark .toolbar{
+  background:#1e293b;
+  border-color:#334155;
+}
+
+.app.dark .patient-banner{
+  background:#111827;
+}
+
+.app.dark .bed div[style*="background: #f8fafc"],
+.app.dark .bed div[style*="background:#f8fafc"]{
+  background:#111827 !important;
+  border:1px solid #334155;
+}
+
+.app.dark button{
+  background:#334155;
+  color:#f8fafc;
+}
+
+.app.dark .card-actions button{
+  color:#fff;
+}
+.patient-summary{
+  margin-top:12px;
+  padding:10px;
+  background:#f8fafc;
+  border-radius:10px;
+}
+
+.infusion-summary{
+  margin-top:10px;
+  padding:10px;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+}
+.activity-item{
+  padding:8px;
+  margin-bottom:8px;
+
+  border-left:3px solid #3b82f6;
+  background:#f8fafc;
+
+  border-radius:6px;
+}
+
+.activity-item strong{
+  display:block;
+  font-size:12px;
+  margin-bottom:4px;
+}
+.app.dark .activity-item{
+  background:#111827;
+  border-left-color:#60a5fa;
+}
+.activity-item{
+  padding:8px;
+  margin-bottom:8px;
+
+  border-left:3px solid #3b82f6;
+  border-radius:8px;
+
+  background:#f8fafc;
+}
+
+.activity-item{
+  position:relative;
+}
+
+.activity-item button{
+  position:absolute;
+  top:8px;
+  right:8px;
+
+  padding:2px 6px;
+  font-size:10px;
+
+}.ward-label{
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+  opacity: 0.8;
 }
